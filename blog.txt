@@ -1,0 +1,25 @@
+Type: Blog Post (Markdown)
+Blog: example
+Link: http://caprazzi.net/?p=272
+Post: 272
+Title: charting data with couchdb
+Slug: charting-data-with-couchdb
+Status: draft
+Date: 2009-12-08 14:28:43 +0000
+Pings: On
+Comments: On
+Category: Uncategorized
+
+curl -v -d @data.json -X POST http://localhost:5984/graph-demo/_bulk_docs
+ 
+echo -e "import test_data\ntest_data.print_couchdb('small-set',100)\n" | python  > data.json
+
+(echo -e "set terminal png size 500, 500\nplot \"-\" using 1:2 with lines notitle"; python test_data.py; echo -e "end") | gnuplot > output.png
+
+$ couchapp push charts http://localhost:5984/graph-demo
+
+http://localhost:5984/graph-demo/_design/charts/index.html
+
+http://localhost:5984/graph-demo/_design/charts/_view/simple
+
+http://localhost:5984/graph-demo/_design/charts/_list/simple/simple
