@@ -20,7 +20,7 @@ Category: Uncategorized
 <div class="xbox">[DRAFT]<small><em><a href="http://couchdb.apache.org/">Apache CouchDB</a> is a document-oriented database that can be queried and indexed in a MapReduce fashion 
 using JavaScript. CouchDB also offers incremental replication with bi-directional conflict detection and resolution. </em></small></div>
 
-<h2>Generating some test data</h2>
+<h2>Generate some test data</h2>
 <p>
 	To get started with this exploration we need some data to render, and a quick way to
 	visualize it before our application is ready. This Python script generates a series of data points
@@ -60,10 +60,10 @@ cat -
 echo -e "end") | gnuplot</code></pre>
 <pre class="term">$ cat test_data.txt | sh gnuplot.sh > <a style="text-decoration:underline" href="http://caprazzi.net/wp-content/uploads/2009/12/test_data.png">test_data.png</a></pre>
 
-<h2>Uploading test data data to couchdb</h2>
+<h2>Upload test data data to couchdb</h2>
 <p>
-	We need to convert our data to json to be able to upload it to couchdb. This python scripts converts
-	each line to a json object, and wraps everything to into a "docs" array, so the output is ready for use with <a href="http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API">couchdb bulk document api.</a> It also adds a tag to each document, so it's easier to upload and manage multiple datasets.
+	We need our data in json format so that it can be uploaded to couchdb. This python scripts converts
+	each input line to a json object. Each object will become a document in couchdb. All lines are collected in the 'docs' array, to make the output compatible with <a href="http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API">couchdb bulk document api.</a> It also adds a tag to each document, so it's easier to upload and manage multiple datasets.
 </p>
 <pre class="code"><code class="python"># data_to_json.py. builds json output suitable for couchdb bulk operations
 import sys
@@ -77,16 +77,137 @@ for line in sys.stdin:
 	if (day <> "0"): print ","
 	sys.stdout.write('{"tag":"%s", "date":"%s", "amount":%s}'%(tag, datestr, value)),
 print '\n]}',</code></pre>
-<pre class="term">$ cat test_data.txt | python data_to_json.py test-data > test_data.json
+<pre class="term">$ cat test_data.txt | python data_to_json.py <strong>test-data</strong> > test_data.json
 $ cat test_data.json
 <strong>{"docs":[</strong>
-{"tag":"test-data", "date":"2000-01-01", "amount":11896},
+{<strong>"tag":"test-data"</strong>, "date":"2000-01-01", "amount":11896},
 {"tag":"test-data", "date":"2000-01-02", "amount":11876},
 ....
 {"tag":"test-data", "date":"2008-03-17", "amount":18703},
 {"tag":"test-data", "date":"2008-03-18", "amount":18643}
 ]}
 </pre>
+
+<p>Create a new database with name svg-charts-demo</p> 
+<pre class="term">$ curl -i -X PUT http://localhost:5984/svg-charts-demo/
+HTTP/1.1 201 Created
+...
+{"ok":true}</pre>
+<p>Upload the test data</p>
+<pre class="term">$ curl -i -d @test_data.json -X POST http://localhost:5984/svg-charts-demo/_bulk_docs
+HTTP/1.1 100 Continue
+
+HTTP/1.1 201 Created
+....</pre>
+<p>Verify that 3000 documents are in the database.</p>
+<pre class="term">
+$ curl http://localhost:5984/svg-charts-demo/_all_docs?limit=0
+{"total_rows":3000,"offset":3000,"rows":[]}
+</pre>
+
+<h2>Create and manage a design document with couchapp</h2>
+	
+<p>
+	<a href="http://books.couchdb.org/relax/design-documents/design-documents" title="design documents chapter on the Definitive Guide">Design documents</a> are special couchdb documents that contain application code such as views and lists.
+	<a href="http://wiki.github.com/couchapp/couchapp">CouchApp</a> is a set of scripts that makes it easy to create and manage design documents.
+</p>
+<p>
+	In most cases installing couchapp is matter of one command. If you have any problems or want to know more, visit <a href="http://books.couchdb.org/relax/example-app/design-documents">Managing Design Documents</a> on the Definitive Guide.
+</p>
+<pre class="term">$ easy_install -U couchapp</pre>
+<p>This command creates a new couchapp called svg-charts and installs it in couchdb</p>
+<pre class="term">$ couchapp generate svg-charts
+	
+$ ls svg-charts/
+_attachments  _id  couchapp.json  lists  shows  updates  vendor  views
+
+$ couchapp push svg-charts http://localhost:5984/svg-charts-demo/
+[INFO] Visit your CouchApp here:
+http://localhost:5984/svg-charts-demo/_design/svg-charts/index.html
+</pre>
+
+<h2>Write a simple view with map/reduce</h2>
+<p>
+	This view will enable us to group the test data year, month or day and see the average
+	for each group.
+</p>
+<pre class="code"><code class="javascript">// map.js
+// key is array representing a date [year][month][day]
+// value is each doc amount field (a number)
+function(doc) {
+	// dates are stored in the doc as 'yyyy-mm-dd'
+	emit(doc.date.split('-'), doc.amount);
+}</code></pre>
+
+<pre class="code"><code class="javascript">// reduce.js
+// this reduce function returns an array of objects
+// {tot:total_value_for_group, count:elements_in_the_group}
+// clients can than do tot/count to get the average for the group
+// Keys are arrays [year][month][day], so count will always be 1 when group_level=3
+function(keys, values, rereduce) {
+	if (rereduce) {
+		var result = {tot:0, count:0};	
+		for (var idx in values) {
+			result.tot += values[idx].tot;
+			result.count += values[idx].count;
+		}
+		return result;
+	}
+	else {
+		var result = {tot:sum(values), count:values.length};
+		return result;
+	}
+}
+</code></pre>
+<p>
+	Update the design document and test the different groupings
+</p>
+<pre class="term">$ couchapp push svg-charts http://localhost:5984/svg-charts-demo/</pre>
+
+<p>Call the view with group_level=1 to get the data grouped by year</p>
+<pre class="term">$ curl http://localhost:5984/svg-charts-demo/_design/svg-charts/_view/by_date?group_level=1
+{"rows":[
+{"key":["2000"],"value":{"tot":4247068,"count":366}},
+{"key":["2001"],"value":{"tot":4675260,"count":365}},
+{"key":["2002"],"value":{"tot":5246890,"count":365}},
+{"key":["2003"],"value":{"tot":5878748,"count":365}},
+{"key":["2004"],"value":{"tot":6185099,"count":366}},
+{"key":["2005"],"value":{"tot":6513098,"count":365}},
+{"key":["2006"],"value":{"tot":6722220,"count":365}},
+{"key":["2007"],"value":{"tot":6827832,"count":365}},
+{"key":["2008"],"value":{"tot":1529286,"count":78}}
+]}</pre>
+<p>Call the view with roup_level=2 to get the data grouped by month</p>
+<pre class="term">$ curl http://localhost:5984/svg-charts-demo/_design/svg-charts/_view/by_date?group_level=2
+{"rows":[
+{"key":["2000","01"],"value":{"tot":343578,"count":31}},
+{"key":["2000","02"],"value":{"tot":323351,"count":29}},
+{"key":["2000","03"],"value":{"tot":351252,"count":31}},
+{"key":["2000","04"],"value":{"tot":342189,"count":30}},
+{"key":["2000","05"],"value":{"tot":358398,"count":31}},
+{"key":["2000","06"],"value":{"tot":345282,"count":30}},
+....</pre>
+<p>Call the view with roup_level=3 to get the data grouped by day. As all the keys are different at the third level, this returns a single row for each document.</p>
+<pre class="term">$ curl -s http://localhost:5984/svg-charts-demo/_design/svg-charts/_view/by_date?group_level=3 | head
+{"rows":[
+{"key":["2000","01","01"],"value":{"tot":11896,"count":1}},
+{"key":["2000","01","02"],"value":{"tot":11876,"count":1}},
+{"key":["2000","01","03"],"value":{"tot":11758,"count":1}},
+{"key":["2000","01","04"],"value":{"tot":11747,"count":1}},
+....</pre>
+<p>Same as above but limiting the response to a range of days</p>
+<pre class="term">$ curl -s 'http://localhost:5984/svg-charts-demo/_design/svg-charts/_view/by_date?group_level=3
+&startkey=\["2008","01","01"\]&endkey=\["2008","01","04"\]'
+{"rows":[
+{"key":["2008","01","01"],"value":{"tot":20050,"count":1}},
+{"key":["2008","01","02"],"value":{"tot":20019,"count":1}},
+{"key":["2008","01","03"],"value":{"tot":19974,"count":1}},
+{"key":["2008","01","04"],"value":{"tot":19878,"count":1}}
+]}</pre>
+
+<h2>And finally, some SVG output with a list!</h2>
+<p>
+</p>
 curl -v -d @data.json -X POST http://localhost:5984/graph-demo/_bulk_docs
  
 echo -e "import test_data\ntest_data.print_couchdb('small-set',100)\n" | python  > data.json
