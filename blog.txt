@@ -205,7 +205,7 @@ function(keys, values, rereduce) {
 {"key":["2008","01","04"],"value":{"tot":19878,"count":1}}
 ]}</pre>
 
-<h2>And finally, some SVG output with a list!</h2>
+<h2>Finally we get to see an SVG chart!</h2>
 <p>
 </p>
 curl -v -d @data.json -X POST http://localhost:5984/graph-demo/_bulk_docs
