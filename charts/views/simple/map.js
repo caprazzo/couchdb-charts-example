@@ -1,4 +1,4 @@
 function(doc) {
-	if(doc.tag=='small-set') 
-		emit(doc.date, doc.amount);
+//	emit(doc.date, doc.amount);
+	emit(doc.date.split('-'), doc.amount);
 }
