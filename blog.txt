@@ -2,7 +2,7 @@ Type: Blog Post (Markdown)
 Blog: example
 Link: http://caprazzi.net/?p=272
 Post: 272
-Title: charting data with couchdb
+Title: generating SVG charts with couchdb
 Slug: charting-data-with-couchdb
 Status: draft
 Date: 2009-12-08 14:28:43 +0000
@@ -10,6 +10,83 @@ Pings: On
 Comments: On
 Category: Uncategorized
 
+<p>
+	CouchDB <a title="List functions chapter in The Definitive Guide" href="http://books.couchdb.org/relax/design-documents/lists">list functions</a> allow you to render the output of view queries in any format, so it should be possible to generate some charts using SVG, an xml-based vector graphics language.
+<P>
+<p>
+	I'll try to render use a list function to render a SVG chart!
+</p>
+
+<div class="xbox">[DRAFT]<small><em><a href="http://couchdb.apache.org/">Apache CouchDB</a> is a document-oriented database that can be queried and indexed in a MapReduce fashion 
+using JavaScript. CouchDB also offers incremental replication with bi-directional conflict detection and resolution. </em></small></div>
+
+<h2>Generating some test data</h2>
+<p>
+	To get started with this exploration we need some data to render, and a quick way to
+	visualize it before our application is ready. This Python script generates a series of data points
+	that simulate the goings of someone's bank account.
+</p>
+<pre class="code"><code class="python"># test_data.py. Usage: python test_data.py &lt;simulation_length&gt;
+import sys
+import random
+
+days = int(sys.argv[1])
+savings = 10000
+pay = 2000
+for i in range(0, days):
+	if ( i%30 == 0):
+		savings = savings + pay
+	savings = savings - random.randint(0, pay/16) - 2
+	print i, (int(savings))
+</code></pre>
+
+<p>Use the script to generate a sample set with 3000 points:</p>
+<pre class="term">$ python test_data.py 3000 > test_data.txt
+$ cat test_data.txt
+0 11947
+1 11882
+2 11813
+3 11790
+4 11775
+...</pre>
+
+<p>
+	Our final output will be similar to a line chart made with some bash and <em>gnuplot</em>:
+</p>
+<pre class="code"><code class="bash">#!/bin/sh
+# gnuplot.sh generates a plot of a series piped in stdin
+(echo -e "set terminal png size 750, 500\nplot \"-\" using 1:2 with lines notitle"
+cat -
+echo -e "end") | gnuplot</code></pre>
+<pre class="term">$ cat test_data.txt | sh gnuplot.sh > <a style="text-decoration:underline" href="http://caprazzi.net/wp-content/uploads/2009/12/test_data.png">test_data.png</a></pre>
+
+<h2>Uploading test data data to couchdb</h2>
+<p>
+	We need to convert our data to json to be able to upload it to couchdb. This python scripts converts
+	each line to a json object, and wraps everything to into a "docs" array, so the output is ready for use with <a href="http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API">couchdb bulk document api.</a> It also adds a tag to each document, so it's easier to upload and manage multiple datasets.
+</p>
+<pre class="code"><code class="python"># data_to_json.py. builds json output suitable for couchdb bulk operations
+import sys
+import datetime
+date = datetime.datetime(2000, 01, 01)
+tag = sys.argv[1]
+print '{"docs":['
+for line in sys.stdin:
+	day, value = line.strip().split(' ')
+	datestr = (date + datetime.timedelta(int(day))).strftime("%Y-%m-%d")
+	if (day <> "0"): print ","
+	sys.stdout.write('{"tag":"%s", "date":"%s", "amount":%s}'%(tag, datestr, value)),
+print '\n]}',</code></pre>
+<pre class="term">$ cat test_data.txt | python data_to_json.py test-data > test_data.json
+$ cat test_data.json
+<strong>{"docs":[</strong>
+{"tag":"test-data", "date":"2000-01-01", "amount":11896},
+{"tag":"test-data", "date":"2000-01-02", "amount":11876},
+....
+{"tag":"test-data", "date":"2008-03-17", "amount":18703},
+{"tag":"test-data", "date":"2008-03-18", "amount":18643}
+]}
+</pre>
 curl -v -d @data.json -X POST http://localhost:5984/graph-demo/_bulk_docs
  
 echo -e "import test_data\ntest_data.print_couchdb('small-set',100)\n" | python  > data.json
@@ -23,3 +100,7 @@ http://localhost:5984/graph-demo/_design/charts/index.html
 http://localhost:5984/graph-demo/_design/charts/_view/simple
 
 http://localhost:5984/graph-demo/_design/charts/_list/simple/simple
+
+[1,5,7,4,9,3,5,1,8]
+
+[{1,7},{3,9},{1,8}]
