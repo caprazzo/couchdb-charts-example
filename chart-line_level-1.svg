@@ -1,0 +1,46 @@
+<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="fill:black" width="750" height="500">
+<rect x="1" y="1" width="750" height="500" style="fill:#C6F1C7; stroke:#C6F1C7"/>
+<rect x="42" y="42" width="666" height="416" style="fill:white; stroke:black"/>
+<line x1="42" y1="479" x2="42" y2="42" style="stroke-width: 0.2; stroke:gray"/>
+<text x="45" y="479" font-size="11" font-family="sans-serif">2000</text>
+<line x1="5" y1="458" x2="708" y2="458" style="stroke-width: 0.2; stroke:gray"/>
+<text x="5" y="456" font-size="11" font-family="sans-serif">11605</text>
+<line x1="116" y1="479" x2="116" y2="42" style="stroke-width: 0.2; stroke:gray"/>
+<text x="119" y="479" font-size="11" font-family="sans-serif">2001</text>
+<line x1="5" y1="395" x2="708" y2="395" style="stroke-width: 0.2; stroke:gray"/>
+<text x="5" y="393" font-size="11" font-family="sans-serif">12809</text>
+<line x1="190" y1="479" x2="190" y2="42" style="stroke-width: 0.2; stroke:gray"/>
+<text x="193" y="479" font-size="11" font-family="sans-serif">2002</text>
+<line x1="5" y1="314" x2="708" y2="314" style="stroke-width: 0.2; stroke:gray"/>
+<text x="5" y="312" font-size="11" font-family="sans-serif">14376</text>
+<line x1="264" y1="479" x2="264" y2="42" style="stroke-width: 0.2; stroke:gray"/>
+<text x="267" y="479" font-size="11" font-family="sans-serif">2003</text>
+<line x1="5" y1="224" x2="708" y2="224" style="stroke-width: 0.2; stroke:gray"/>
+<text x="5" y="222" font-size="11" font-family="sans-serif">16107</text>
+<line x1="338" y1="479" x2="338" y2="42" style="stroke-width: 0.2; stroke:gray"/>
+<text x="341" y="479" font-size="11" font-family="sans-serif">2004</text>
+<line x1="5" y1="183" x2="708" y2="183" style="stroke-width: 0.2; stroke:gray"/>
+<text x="5" y="181" font-size="11" font-family="sans-serif">16900</text>
+<line x1="412" y1="479" x2="412" y2="42" style="stroke-width: 0.2; stroke:gray"/>
+<text x="415" y="479" font-size="11" font-family="sans-serif">2005</text>
+<line x1="5" y1="134" x2="708" y2="134" style="stroke-width: 0.2; stroke:gray"/>
+<text x="5" y="132" font-size="11" font-family="sans-serif">17845</text>
+<line x1="486" y1="479" x2="486" y2="42" style="stroke-width: 0.2; stroke:gray"/>
+<text x="489" y="479" font-size="11" font-family="sans-serif">2006</text>
+<line x1="5" y1="104" x2="708" y2="104" style="stroke-width: 0.2; stroke:gray"/>
+<text x="5" y="102" font-size="11" font-family="sans-serif">18418</text>
+<line x1="560" y1="479" x2="560" y2="42" style="stroke-width: 0.2; stroke:gray"/>
+<text x="563" y="479" font-size="11" font-family="sans-serif">2007</text>
+<line x1="634" y1="479" x2="634" y2="42" style="stroke-width: 0.2; stroke:gray"/>
+<text x="637" y="479" font-size="11" font-family="sans-serif">2008</text>
+<line x1="5" y1="42" x2="708" y2="42" style="stroke-width: 0.2; stroke:gray"/>
+<text x="5" y="40" font-size="11" font-family="sans-serif">19607</text>
+<polyline style="stroke:black; stroke-width: 3; fill: none;" points="42 458,
+116 395,
+190 314,
+264 224,
+338 183,
+412 134,
+486 104,
+560 89,
+634 42"/></svg>
