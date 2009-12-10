@@ -3,17 +3,34 @@
 // {tot:total_value_for_group, count:elements_in_the_group}
 // clients can than do tot/count to get the average for the group
 // Keys are arrays [year][month][day], so count will always be 1 when group_level=3
-function(keys, values, rereduce) {
+function max(values, rereduce) {
 	if (rereduce) {
-		var result = {tot:0, count:0};	
-		for (var idx in values) {
-			result.tot += values[idx].tot;
-			result.count += values[idx].count;
+		var vals = [];
+		for(var idx in values) {
+			vals[vals.length] = values[idx].max;
 		}
-		return result;
+		return max(vals, false);
 	}
 	else {
-		var result = {tot:sum(values), count:values.length};
-		return result;
+		var m = values[0];
+		for (var idx in values) {
+			if (values[idx] > m) m = values[idx]
+		}
+		return m;
 	}
+}
+function(keys, values, rereduce) {
+	var tot = 0;
+	var count = 0;
+	if (rereduce) {
+		for (var idx in values) {
+			tot += values[idx].tot;
+			count += values[idx].count;
+		}
+	}
+	else {
+		tot = sum(values);
+		count = values.length;
+	}
+	return {tot:tot, count:count, avg:tot/count};
 }

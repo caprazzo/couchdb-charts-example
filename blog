@@ -1,0 +1,193 @@
+Type: Blog Post (HTML)
+Blog: caprazzi
+Link: http://caprazzi.net/?p=272
+Post: 272
+Title: generating SVG charts with couchdb
+Slug: charting-data-with-couchdb
+Status: draft
+Date: 2009-12-08 14:28:43 +0000
+Pings: On
+Comments: On
+Category: Uncategorized
+
+CouchDB <a title="List functions chapter in The Definitive Guide" href="http://books.couchdb.org/relax/design-documents/lists">list functions</a> allow you to render the output of view queries in any format, so it should be possible to generate some charts using SVG, an xml-based vector graphics language.
+
+I'll try to render use a list function to render a SVG chart!
+<div class="xbox">[DRAFT]<small><em><a href="http://couchdb.apache.org/">Apache CouchDB</a> is a document-oriented database that can be queried and indexed in a MapReduce fashion
+using JavaScript. CouchDB also offers incremental replication with bi-directional conflict detection and resolution. </em></small></div>
+<h2>Generate some test data</h2>
+To get started with this exploration we need some data to render, and a quick way to
+visualize it before our application is ready. This Python script generates a series of data points
+that simulate the goings of someone's bank account.
+<pre class="code"><code class="python"># test_data.py. Usage: python test_data.py &lt;simulation_length&gt;
+import sys
+import random
+
+days = int(sys.argv[1])
+savings = 10000
+pay = 2000
+for i in range(0, days):
+	if ( i%30 == 0):
+		savings = savings + pay
+	savings = savings - random.randint(0, pay/16) - 2
+	print i, (int(savings))
+</code></pre>
+Use the script to generate a sample set with 3000 points:
+<pre class="term">$ python test_data.py 3000 &gt; test_data.txt
+$ cat test_data.txt
+0 11947
+1 11882
+2 11813
+3 11790
+4 11775
+...</pre>
+Our final output will be similar to a line chart made with some bash and <em>gnuplot</em>:
+<pre class="code"><code class="bash">#!/bin/sh
+# gnuplot.sh generates a plot of a series piped in stdin
+(echo -e "set terminal png size 750, 500\nplot \"-\" using 1:2 with lines notitle"
+cat -
+echo -e "end") | gnuplot</code></pre>
+<pre class="term">$ cat test_data.txt | sh gnuplot.sh &gt; <a style="text-decoration:underline" href="http://caprazzi.net/wp-content/uploads/2009/12/test_data.png">test_data.png</a></pre>
+<h2>Upload test data data to couchdb</h2>
+We need our data in json format so that it can be uploaded to couchdb. This python scripts converts
+each input line to a json object. Each object will become a document in couchdb. All lines are collected in the 'docs' array, to make the output compatible with <a href="http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API">couchdb bulk document api.</a> It also adds a tag to each document, so it's easier to upload and manage multiple datasets.
+<pre class="code"><code class="python"># data_to_json.py. builds json output suitable for couchdb bulk operations
+import sys
+import datetime
+date = datetime.datetime(2000, 01, 01)
+tag = sys.argv[1]
+print '{"docs":['
+for line in sys.stdin:
+	day, value = line.strip().split(' ')
+	datestr = (date + datetime.timedelta(int(day))).strftime("%Y-%m-%d")
+	if (day &lt;&gt; "0"): print ","
+	sys.stdout.write('{"tag":"%s", "date":"%s", "amount":%s}'%(tag, datestr, value)),
+print '\n]}',</code></pre>
+<pre class="term">$ cat test_data.txt | python data_to_json.py <strong>test-data</strong> &gt; test_data.json
+$ cat test_data.json
+<strong>{"docs":[</strong>
+{<strong>"tag":"test-data"</strong>, "date":"2000-01-01", "amount":11896},
+{"tag":"test-data", "date":"2000-01-02", "amount":11876},
+....
+{"tag":"test-data", "date":"2008-03-17", "amount":18703},
+{"tag":"test-data", "date":"2008-03-18", "amount":18643}
+]}</pre>
+Create a new database with name svg-charts-demo
+<pre class="term">$ curl -i -X PUT http://localhost:5984/svg-charts-demo/
+HTTP/1.1 201 Created
+...
+{"ok":true}</pre>
+Upload the test data
+<pre class="term">$ curl -i -d @test_data.json -X POST http://localhost:5984/svg-charts-demo/_bulk_docs
+HTTP/1.1 100 Continue
+
+HTTP/1.1 201 Created
+....</pre>
+Verify that 3000 documents are in the database.
+<pre class="term">$ curl http://localhost:5984/svg-charts-demo/_all_docs?limit=0
+{"total_rows":3000,"offset":3000,"rows":[]}</pre>
+<h2>Create and manage a design document with couchapp</h2>
+<a title="design documents chapter on the Definitive Guide" href="http://books.couchdb.org/relax/design-documents/design-documents">Design documents</a> are special couchdb documents that contain application code such as views and lists.
+<a href="http://wiki.github.com/couchapp/couchapp">CouchApp</a> is a set of scripts that makes it easy to create and manage design documents.
+
+In most cases installing couchapp is matter of one command. If you encounter any problem, or want to know more, visit <a href="http://books.couchdb.org/relax/example-app/design-documents">Managing Design Documents</a> on the Definitive Guide.
+<pre class="term">$ easy_install -U couchapp</pre>
+This command creates a new couchapp called svg-charts and installs it in couchdb
+<pre class="term">$ couchapp generate svg-charts
+
+$ ls svg-charts/
+_attachments  _id  couchapp.json  lists  shows  updates  vendor  views
+
+$ couchapp push svg-charts http://localhost:5984/svg-charts-demo/
+[INFO] Visit your CouchApp here:
+http://localhost:5984/svg-charts-demo/_design/svg-charts/index.html</pre>
+<h2>Write a simple view with map/reduce</h2>
+This view will enable us to group the test data year, month or day and see the average
+for each group.
+<pre class="code"><code class="javascript">// map.js
+// key is array representing a date [year][month][day]
+// value is each doc amount field (a number)
+function(doc) {
+	// dates are stored in the doc as 'yyyy-mm-dd'
+	emit(doc.date.split('-'), doc.amount);
+}</code></pre>
+<pre class="code"><code class="javascript">// reduce.js
+// this reduce function returns an array of objects
+// {tot:total_value_for_group, count:elements_in_the_group}
+// clients can than do tot/count to get the average for the group
+// Keys are arrays [year][month][day], so count will always be 1 when group_level=3
+function(keys, values, rereduce) {
+	if (rereduce) {
+		var result = {tot:0, count:0};
+		for (var idx in values) {
+			result.tot += values[idx].tot;
+			result.count += values[idx].count;
+		}
+		return result;
+	}
+	else {
+		var result = {tot:sum(values), count:values.length};
+		return result;
+	}
+}
+</code></pre>
+Update the design document and test the different groupings
+<pre class="term">$ couchapp push svg-charts http://localhost:5984/svg-charts-demo/</pre>
+Call the view with group_level=1 to get the data grouped by year
+<pre class="term">$ curl http://localhost:5984/svg-charts-demo/_design/svg-charts/_view/by_date?group_level=1
+{"rows":[
+{"key":["2000"],"value":{"tot":4247068,"count":366}},
+{"key":["2001"],"value":{"tot":4675260,"count":365}},
+{"key":["2002"],"value":{"tot":5246890,"count":365}},
+{"key":["2003"],"value":{"tot":5878748,"count":365}},
+{"key":["2004"],"value":{"tot":6185099,"count":366}},
+{"key":["2005"],"value":{"tot":6513098,"count":365}},
+{"key":["2006"],"value":{"tot":6722220,"count":365}},
+{"key":["2007"],"value":{"tot":6827832,"count":365}},
+{"key":["2008"],"value":{"tot":1529286,"count":78}}
+]}</pre>
+Call the view with roup_level=2 to get the data grouped by month
+<pre class="term">$ curl http://localhost:5984/svg-charts-demo/_design/svg-charts/_view/by_date?group_level=2
+{"rows":[
+{"key":["2000","01"],"value":{"tot":343578,"count":31}},
+{"key":["2000","02"],"value":{"tot":323351,"count":29}},
+{"key":["2000","03"],"value":{"tot":351252,"count":31}},
+{"key":["2000","04"],"value":{"tot":342189,"count":30}},
+{"key":["2000","05"],"value":{"tot":358398,"count":31}},
+{"key":["2000","06"],"value":{"tot":345282,"count":30}},
+....</pre>
+Call the view with roup_level=3 to get the data grouped by day. As all the keys are different at the third level, this returns a single row for each document.
+<pre class="term">$ curl -s http://localhost:5984/svg-charts-demo/_design/svg-charts/_view/by_date?group_level=3 | head
+{"rows":[
+{"key":["2000","01","01"],"value":{"tot":11896,"count":1}},
+{"key":["2000","01","02"],"value":{"tot":11876,"count":1}},
+{"key":["2000","01","03"],"value":{"tot":11758,"count":1}},
+{"key":["2000","01","04"],"value":{"tot":11747,"count":1}},
+....</pre>
+Same as above but limiting the response to a range of days
+<pre class="term">$ curl -s 'http://localhost:5984/svg-charts-demo/_design/svg-charts/_view/by_date?group_level=3
+&amp;startkey=\["2008","01","01"\]&amp;endkey=\["2008","01","04"\]'
+{"rows":[
+{"key":["2008","01","01"],"value":{"tot":20050,"count":1}},
+{"key":["2008","01","02"],"value":{"tot":20019,"count":1}},
+{"key":["2008","01","03"],"value":{"tot":19974,"count":1}},
+{"key":["2008","01","04"],"value":{"tot":19878,"count":1}}
+]}</pre>
+<h2>And finally, some SVG output with a list!</h2>
+curl -v -d @data.json -X POST http://localhost:5984/graph-demo/_bulk_docs
+
+echo -e "import test_data\ntest_data.print_couchdb('small-set',100)\n" | python  &gt; data.json
+
+(echo -e "set terminal png size 500, 500\nplot \"-\" using 1:2 with lines notitle"; python test_data.py; echo -e "end") | gnuplot &gt; output.png
+
+$ couchapp push charts http://localhost:5984/graph-demo
+
+http://localhost:5984/graph-demo/_design/charts/index.html
+
+http://localhost:5984/graph-demo/_design/charts/_view/simple
+
+http://localhost:5984/graph-demo/_design/charts/_list/simple/simple
+
+[1,5,7,4,9,3,5,1,8]
+
+[{1,7},{3,9},{1,8}]

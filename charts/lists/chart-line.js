@@ -4,7 +4,7 @@ function(head, req) {
 	log(req);
 	start({"headers":{"Content-Type" : "image/svg+xml"}});
 	send('<?xml version="1.0"?>');
-	send('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="800px" height="400px">\n');
+	send('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">\n');
 	
 	function sigFigs(n, sig) {
 	    var mult = Math.pow(10, sig - Math.floor(Math.log(n) / Math.LN10) - 1);
